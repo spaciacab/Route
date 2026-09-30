@@ -1,0 +1,1703 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Spacia Cab Service · Live Route Map — Sri Lanka</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Montserrat:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --forest:#123f33; --deep:#0c2b23; --gold:#b8923c; --goldsoft:#d4af5e;
+    --bright:#e9cf8f; --cream:#f7f1e2; --paper:#fbf7ec; --ink:#243230;
+    --line:rgba(184,146,60,.45);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{font-family:'Montserrat',sans-serif;color:var(--ink);display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+  header{
+    background:linear-gradient(120deg,var(--forest),var(--deep));
+    color:var(--cream);padding:10px 18px;display:flex;align-items:center;gap:16px;
+    flex-wrap:wrap;border-bottom:3px solid var(--gold);
+  }
+  .brand{display:flex;align-items:center;gap:12px}
+  .logo{
+    width:44px;height:44px;border-radius:50%;flex:none;
+    background:rgba(212,175,94,.12);border:1.5px solid var(--goldsoft);
+    display:flex;align-items:center;justify-content:center;
+  }
+  .logo svg{width:26px}
+  .brand .eyebrow{display:block;font-size:8px;font-weight:600;letter-spacing:.3em;
+    text-transform:uppercase;color:var(--goldsoft)}
+  .brand h1{font-family:'Cormorant Garamond',serif;font-weight:600;font-size:23px;line-height:1.05}
+  .switch{display:flex;gap:6px;margin-left:auto;flex-wrap:wrap}
+  .switch button{
+    font:600 11px 'Montserrat',sans-serif;letter-spacing:.1em;
+    background:transparent;color:var(--goldsoft);border:1px solid rgba(212,175,94,.55);
+    padding:10px 12px;cursor:pointer;border-radius:3px;transition:.25s;
+  }
+  .switch button.on{background:var(--gold);color:var(--deep);border-color:var(--gold)}
+  .switch button:hover{border-color:var(--goldsoft)}
+
+  #mapwrap{flex:1;position:relative;min-height:0}
+  #map{position:absolute;inset:0;background:#0c2b23}
+  .leaflet-container{font-family:'Montserrat',sans-serif}
+  .leaflet-bar a{color:var(--forest)}
+
+  #tools{position:absolute;top:12px;left:12px;z-index:900;display:flex;flex-direction:column;gap:8px}
+  #tools .tool{
+    width:40px;height:40px;border-radius:50%;cursor:pointer;
+    border:1px solid rgba(184,146,60,.6);background:rgba(251,247,236,.95);
+    display:flex;align-items:center;justify-content:center;transition:.2s;
+    box-shadow:0 4px 14px rgba(12,43,35,.35);
+  }
+  #tools .tool svg{width:18px}
+  #tools .tool svg *{stroke:var(--forest);fill:none;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  #tools .tool:hover{border-color:var(--gold)}
+  #tools .tool.on{background:var(--gold)}
+  #tools .tool.on svg *{stroke:var(--deep)}
+
+  .tourbar{
+    position:absolute;bottom:16px;left:50%;transform:translateX(-50%);z-index:900;
+    display:flex;align-items:center;gap:6px;background:rgba(251,247,236,.95);
+    border:1px solid rgba(184,146,60,.6);border-radius:40px;padding:6px 10px 8px;
+    box-shadow:0 8px 26px rgba(12,43,35,.45);
+  }
+  .tourbar button{
+    font:600 12px 'Montserrat',sans-serif;cursor:pointer;border:none;border-radius:30px;
+    background:var(--forest);color:var(--cream);padding:10px 16px;transition:.2s;
+  }
+  .tourbar button:hover{background:var(--deep)}
+  .tourbar button.playing{background:var(--gold);color:var(--deep)}
+  .tourbar button.nav{padding:10px 13px;font-size:15px;line-height:1}
+  .tourbar #tourInfo{
+    font-size:10.5px;color:#5b6660;letter-spacing:.04em;padding:0 8px;
+    max-width:210px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  .tourbar #tourInfo b{color:var(--forest)}
+  #tprog{position:absolute;left:16px;right:16px;bottom:3px;height:3px;border-radius:2px;
+    background:rgba(184,146,60,.2);overflow:hidden}
+  #tprog i{display:block;height:100%;width:0;background:var(--gold);border-radius:2px;transition:width .5s}
+
+  #toast{
+    position:absolute;top:14px;left:50%;transform:translateX(-50%) translateY(-8px);z-index:1300;
+    background:rgba(12,43,35,.95);color:var(--cream);border:1px solid var(--goldsoft);
+    padding:9px 18px;border-radius:30px;font-size:11px;letter-spacing:.04em;
+    opacity:0;pointer-events:none;transition:.3s;max-width:80%;text-align:center;
+  }
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  #veil{
+    position:absolute;inset:0;z-index:1000;background:rgba(9,30,25,.55);
+    display:flex;align-items:center;justify-content:center;padding:18px;
+    transition:opacity .5s;
+  }
+  #veil.gone{opacity:0;pointer-events:none}
+  .intro{
+    background:var(--paper);border:1px solid var(--goldsoft);border-radius:6px;
+    max-width:400px;width:100%;padding:26px 26px 22px;text-align:center;
+    box-shadow:0 20px 60px rgba(0,0,0,.5);position:relative;
+  }
+  .intro::before{content:"";position:absolute;inset:6px;border:1px solid rgba(184,146,60,.35);
+    border-radius:4px;pointer-events:none}
+  .intro .eyebrow{display:block;font-size:8.5px;font-weight:600;letter-spacing:.3em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:8px}
+  .intro h2{font-family:'Cormorant Garamond',serif;font-weight:500;font-size:38px;
+    color:var(--forest);line-height:1}
+  .intro .tag{font-family:'Cormorant Garamond',serif;font-style:italic;font-size:16px;
+    color:var(--gold);margin:2px 0 10px}
+  .intro p{font-size:11.5px;line-height:1.65;color:#4c5a52;margin-bottom:16px}
+  .intro .fair-line{
+    font-size:9px;line-height:1.6;color:#5b6660;font-style:italic;
+    border-top:1px solid rgba(184,146,60,.3);padding-top:10px;margin-bottom:14px;
+    text-align:left;
+  }
+  .intro .fair-line b{color:var(--forest);font-style:normal}
+  .intro .btns{display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .intro .btns button{
+    font:600 11px 'Montserrat',sans-serif;letter-spacing:.08em;cursor:pointer;
+    padding:12px 16px;border-radius:3px;transition:.25s;
+  }
+  .intro .btns .primary{background:var(--forest);color:var(--cream);border:1px solid var(--forest)}
+  .intro .btns .primary:hover{background:var(--deep)}
+  .intro .btns .ghost{background:transparent;color:var(--forest);border:1px solid var(--gold)}
+  .intro .btns .ghost:hover{background:rgba(184,146,60,.12)}
+  .intro .skip{
+    margin-top:14px;background:none;border:none;cursor:pointer;
+    font-size:10px;color:#8a928c;text-decoration:underline;letter-spacing:.06em;
+  }
+
+  /* ═══════════ CUSTOM TOUR BUILDER ═══════════ */
+  #bveil{
+    position:absolute;inset:0;z-index:1100;background:rgba(9,30,25,.62);
+    display:none;align-items:center;justify-content:center;padding:16px;
+  }
+  #bveil.open{display:flex}
+  .builder{
+    background:var(--paper);border:1px solid var(--goldsoft);border-radius:6px;
+    width:540px;max-width:100%;max-height:calc(100% - 20px);
+    display:flex;flex-direction:column;position:relative;
+    box-shadow:0 20px 60px rgba(0,0,0,.55);
+  }
+  .builder::before{content:"";position:absolute;inset:6px;border:1px solid rgba(184,146,60,.35);
+    border-radius:4px;pointer-events:none}
+  .b-head{
+    display:flex;align-items:center;gap:10px;padding:16px 20px 12px;
+    border-bottom:1px solid rgba(184,146,60,.3);
+  }
+  .b-head .eyebrow{font-size:8px;font-weight:600;letter-spacing:.28em;
+    text-transform:uppercase;color:var(--gold);display:block}
+  .b-head h2{font-family:'Cormorant Garamond',serif;font-weight:600;
+    font-size:23px;color:var(--forest);line-height:1.1}
+  .b-close{
+    margin-left:auto;width:30px;height:30px;border-radius:50%;flex:none;cursor:pointer;
+    border:1px solid rgba(184,146,60,.5);background:none;color:var(--gold);font-size:13px;
+  }
+  .b-body{overflow-y:auto;padding:14px 20px}
+  .b-sec{font-size:9px;font-weight:600;letter-spacing:.22em;text-transform:uppercase;
+    color:var(--gold);margin:8px 0 8px}
+  .daypick{display:flex;gap:8px}
+  .daypick button{
+    flex:1;padding:11px 6px;border-radius:3px;cursor:pointer;transition:.2s;
+    font:600 10.5px 'Montserrat',sans-serif;letter-spacing:.04em;
+    background:rgba(255,255,255,.7);color:var(--forest);border:1px solid var(--line);
+  }
+  .daypick button small{display:block;font-size:7.5px;opacity:.65;font-weight:500;letter-spacing:.05em;margin-top:2px}
+  .daypick button.on{background:var(--forest);color:var(--cream);border-color:var(--forest)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;max-height:34vh;overflow-y:auto;padding:2px}
+  .chip{
+    display:flex;flex-direction:column;align-items:center;gap:1px;
+    border:1px solid var(--line);padding:7px 12px;border-radius:20px;cursor:pointer;
+    font:600 10.5px 'Montserrat',sans-serif;color:var(--ink);
+    background:rgba(255,255,255,.75);transition:.15s;
+  }
+  .chip small{font-size:7px;letter-spacing:.14em;text-transform:uppercase;opacity:.6;font-weight:600}
+  .chip:hover{border-color:var(--gold)}
+  .chip.on{background:var(--gold);color:var(--deep);border-color:var(--gold)}
+  .chip.on small{opacity:.75}
+  .chip.bad{border-color:rgba(192,57,43,.7)}
+  .chip.bad small{color:#b03a2e;opacity:1}
+  .chip.on.bad{background:#c0392b;border-color:#c0392b;color:#fff}
+
+  .b-est{
+    margin-top:12px;border:1px dashed var(--gold);border-radius:4px;
+    padding:10px 14px;font-size:11px;line-height:1.7;color:#4c5a52;
+    background:rgba(255,255,255,.65);
+  }
+  .b-est.ok{border-style:solid;border-color:#7da05a}
+  .b-est.tight{border-style:solid;border-color:#c98a2e;background:rgba(201,138,46,.06)}
+  .b-est.no{border-style:solid;border-color:#c0392b;background:rgba(192,57,43,.06)}
+  .st-ok{color:#4a7a35;font-weight:600}
+  .st-tight{color:#a06a1f;font-weight:600}
+  .st-no{color:#b03a2e;font-weight:600}
+  .rt{display:block;margin-top:6px;font-size:9px;letter-spacing:.05em;font-weight:600}
+  .rt-live{color:#4a7a35}
+  .rt-off{color:#a06a1f}
+  .fixbtn{
+    padding:8px 12px;border:1px solid var(--forest);border-radius:3px;
+    background:var(--forest);color:var(--cream);
+    font:600 9.5px 'Montserrat',sans-serif;letter-spacing:.06em;
+    text-transform:uppercase;cursor:pointer;transition:.2s;
+  }
+  .fixbtn:hover{background:var(--deep)}
+  .fixbtn.red{background:#b03a2e;border-color:#b03a2e;color:#fff}
+  .fixbtn.red:hover{background:#922c23}
+  .b-note{margin-top:8px;font-size:9px;color:#8a928c;font-style:italic;line-height:1.5}
+  .b-note b{color:var(--forest);font-style:normal}
+  .b-foot{
+    display:flex;gap:8px;padding:12px 20px 16px;flex-wrap:wrap;
+    border-top:1px solid rgba(184,146,60,.3);
+  }
+  .b-foot button{
+    flex:1 1 140px;padding:12px 10px;border-radius:3px;cursor:pointer;
+    font:600 11px 'Montserrat',sans-serif;letter-spacing:.08em;text-transform:uppercase;
+    transition:.2s;min-width:120px;
+  }
+  #bView{background:var(--forest);color:var(--cream);border:1px solid var(--forest)}
+  #bView:hover{background:var(--deep)}
+  #bView:disabled,#bWa:disabled{opacity:.4;cursor:not-allowed}
+  #bWa{background:var(--gold);color:var(--deep);border:1px solid var(--gold)}
+  #bWa:hover:not(:disabled){background:var(--goldsoft)}
+  #bClear{background:transparent;color:#8a928c;border:1px solid rgba(184,146,60,.4)}
+  #bClear:hover{background:rgba(184,146,60,.1)}
+
+  #panel{
+    position:absolute;top:12px;right:12px;z-index:900;width:302px;
+    background:rgba(251,247,236,.96);border:1px solid rgba(184,146,60,.55);
+    border-radius:5px;box-shadow:0 10px 30px rgba(12,43,35,.35);
+    display:flex;flex-direction:column;max-height:calc(100% - 86px);
+  }
+  .panel-head{
+    display:flex;align-items:center;gap:10px;padding:12px 14px;cursor:pointer;
+    border-bottom:1px solid rgba(184,146,60,.3);
+  }
+  .panel-head .eyebrow{font-size:7.5px;font-weight:600;letter-spacing:.28em;
+    text-transform:uppercase;color:var(--gold)}
+  .panel-head h2{font-family:'Cormorant Garamond',serif;font-weight:600;
+    font-size:19px;color:var(--forest);line-height:1.15}
+  .mini-stats{font-size:9.5px;color:#5b6660;margin-top:3px;line-height:1.6}
+  .mini-stats b{color:var(--forest)}
+  .chev{
+    margin-left:auto;flex:none;width:26px;height:26px;border-radius:50%;
+    border:1px solid rgba(184,146,60,.5);background:none;color:var(--gold);
+    font-size:13px;cursor:pointer;transition:.3s;
+  }
+  #panel.collapsed .chev{transform:rotate(180deg)}
+  #panel.collapsed ol,#panel.collapsed .panel-foot{display:none}
+  #panel ol{list-style:none;overflow-y:auto;flex:1}
+  #panel li{
+    display:flex;gap:11px;padding:10px 14px;cursor:pointer;
+    border-bottom:1px solid rgba(184,146,60,.14);transition:background .2s;
+    border-left:3px solid transparent;
+  }
+  #panel li:hover{background:rgba(184,146,60,.1)}
+  #panel li.active{background:rgba(184,146,60,.16);border-left-color:var(--gold)}
+  #panel li.day-sep{
+    display:flex;justify-content:space-between;align-items:center;
+    background:var(--forest);color:var(--cream);padding:6px 14px;cursor:default;
+    font:600 8.5px 'Montserrat';letter-spacing:.22em;text-transform:uppercase;
+  }
+  #panel li.day-sep:hover{background:var(--forest)}
+  #panel li.day-sep span:last-child{color:var(--goldsoft);letter-spacing:.06em}
+  .badge{
+    flex:none;width:26px;height:26px;border-radius:50%;margin-top:1px;
+    background:var(--forest);border:1.5px solid var(--goldsoft);color:var(--cream);
+    display:flex;align-items:center;justify-content:center;font:600 11px 'Montserrat';
+  }
+  li.active .badge{background:var(--gold);color:var(--deep)}
+  .stop-txt b{display:block;font-family:'Cormorant Garamond',serif;font-weight:600;
+    font-size:15.5px;color:var(--forest);line-height:1.2}
+  .stop-txt .d{display:block;font-size:8px;font-weight:600;letter-spacing:.2em;
+    text-transform:uppercase;color:var(--gold);margin:1px 0}
+  .stop-txt span.n{font-size:9.5px;line-height:1.5;color:#5b6660;display:block}
+  .stop-txt .leg{display:block;font-size:9px;font-weight:600;color:var(--gold);
+    letter-spacing:.03em;margin-top:3px}
+  .panel-foot{padding:10px 14px;border-top:1px solid rgba(184,146,60,.3);
+    font-size:8.5px;color:#6b756d;line-height:1.6}
+  .panel-foot b{color:var(--forest)}
+  .panel-foot p{margin-bottom:8px}
+
+  .fair-fare{
+    border:1px solid var(--gold);border-radius:4px;background:rgba(184,146,60,.08);
+    padding:8px 10px;margin-bottom:8px;font-size:8.5px;line-height:1.6;color:#4c5a52;
+  }
+  .fair-fare b{color:var(--forest)}
+  .fair-fare .ff-t{
+    display:flex;align-items:center;gap:5px;font-weight:600;color:var(--forest);
+    font-size:8px;letter-spacing:.16em;text-transform:uppercase;margin-bottom:3px;
+  }
+  .fair-fare .ff-t svg{width:13px;flex:none}
+  .fair-fare .ff-t svg *{stroke:var(--gold);fill:none;stroke-width:1.8;
+    stroke-linecap:round;stroke-linejoin:round}
+
+  .wa-btn{
+    display:block;width:100%;padding:11px 12px;margin-bottom:8px;border:none;border-radius:3px;
+    background:var(--gold);color:var(--deep);font:600 11px 'Montserrat',sans-serif;
+    letter-spacing:.08em;text-transform:uppercase;cursor:pointer;transition:.2s;
+  }
+  .wa-btn:hover{background:var(--goldsoft)}
+
+  #wishFab{
+    position:absolute;left:12px;bottom:16px;z-index:900;width:46px;height:46px;
+    border-radius:50%;border:2px solid var(--goldsoft);background:var(--deep);
+    color:var(--goldsoft);display:flex;align-items:center;justify-content:center;
+    cursor:pointer;box-shadow:0 6px 18px rgba(12,43,35,.5);transition:.25s;
+  }
+  #wishFab svg{width:20px}
+  #wishFab:hover{background:var(--gold);color:var(--deep)}
+  #wishBadge{
+    position:absolute;top:-4px;right:-4px;min-width:18px;height:18px;border-radius:9px;
+    background:var(--gold);color:var(--deep);font:600 10px 'Montserrat';
+    display:none;align-items:center;justify-content:center;padding:0 4px;
+  }
+  #wishBadge.show{display:flex}
+  #wish{
+    position:absolute;left:12px;bottom:72px;z-index:950;width:280px;
+    max-height:min(60%,420px);display:none;flex-direction:column;
+    background:rgba(251,247,236,.97);border:1px solid rgba(184,146,60,.55);
+    border-radius:5px;box-shadow:0 10px 30px rgba(12,43,35,.4);
+  }
+  #wish.open{display:flex}
+  .wish-head{display:flex;align-items:center;gap:8px;padding:10px 12px;
+    border-bottom:1px solid rgba(184,146,60,.3)}
+  .wish-head b{font-family:'Cormorant Garamond',serif;font-size:18px;color:var(--forest)}
+  .wish-head span{font-size:8.5px;color:#5b6660;letter-spacing:.14em;
+    text-transform:uppercase;margin-left:auto}
+  .wish-head button{border:none;background:none;cursor:pointer;color:var(--gold);font-size:13px}
+  #wishList{list-style:none;overflow-y:auto;flex:1}
+  #wishList li{display:flex;align-items:center;gap:8px;padding:8px 12px;
+    border-bottom:1px solid rgba(184,146,60,.14)}
+  #wishList li b{font-family:'Cormorant Garamond',serif;font-size:15px;color:var(--forest);
+    font-weight:600;flex:1;line-height:1.2}
+  #wishList li button{border:1px solid rgba(184,146,60,.4);background:none;color:var(--gold);
+    width:22px;height:22px;border-radius:50%;cursor:pointer;font-size:10px;line-height:1;flex:none}
+  #wishList .empty{padding:14px 12px;font-size:10px;color:#8a928c;font-style:italic}
+  .wish-foot{padding:10px 12px;border-top:1px solid rgba(184,146,60,.3)}
+  .wish-build{
+    display:block;width:100%;padding:8px 10px;margin-bottom:8px;border-radius:3px;
+    background:transparent;border:1px solid var(--line);color:var(--forest);
+    font:600 10px 'Montserrat',sans-serif;letter-spacing:.08em;text-transform:uppercase;
+    cursor:pointer;transition:.2s;
+  }
+  .wish-build:hover{background:rgba(184,146,60,.12)}
+  .wish-clear{display:block;width:100%;border:none;background:none;color:#8a928c;
+    font:500 9.5px 'Montserrat';letter-spacing:.1em;text-transform:uppercase;
+    cursor:pointer;text-decoration:underline}
+
+  .stop-mark{
+    width:30px;height:30px;border-radius:50%;background:var(--deep);
+    border:2px solid var(--goldsoft);color:var(--cream);
+    display:flex;align-items:center;justify-content:center;
+    font:600 12px 'Montserrat',sans-serif;position:relative;
+    box-shadow:0 3px 12px rgba(0,0,0,.5);transition:transform .2s,background .2s;
+  }
+  .stop-mark.active{background:var(--gold);color:var(--deep);transform:scale(1.18)}
+  .stop-mark.active::after{
+    content:"";position:absolute;inset:-7px;border:2px solid rgba(212,175,94,.85);
+    border-radius:50%;animation:pulse 1.7s ease-out infinite;
+  }
+  @keyframes pulse{0%{transform:scale(.75);opacity:1}100%{transform:scale(1.7);opacity:0}}
+  .poi-wrap{width:22px;height:22px;display:flex;align-items:center;justify-content:center}
+  .poi-mark{width:11px;height:11px;background:var(--deep);border:2px solid var(--goldsoft);
+    transform:rotate(45deg);box-shadow:0 2px 8px rgba(0,0,0,.45);transition:transform .2s}
+  .poi-wrap:hover .poi-mark{transform:rotate(45deg) scale(1.3)}
+  .me{width:16px;height:16px;border-radius:50%;background:var(--gold);
+    border:3px solid var(--cream);box-shadow:0 0 0 6px rgba(184,146,60,.25)}
+  .stop-label{
+    background:rgba(12,43,35,.88)!important;color:var(--cream)!important;
+    border:1px solid rgba(212,175,94,.75)!important;border-radius:3px!important;
+    font:600 10px 'Montserrat',sans-serif!important;letter-spacing:.05em;
+    padding:2px 8px!important;box-shadow:0 3px 10px rgba(0,0,0,.4)!important;
+    pointer-events:none;
+  }
+  .stop-label::before{display:none!important}
+
+  .route-line{animation:flow 22s linear infinite}
+  @keyframes flow{to{stroke-dashoffset:-240}}
+
+  .car{
+    width:40px;height:40px;border-radius:50%;background:rgba(12,43,35,.92);
+    border:2px solid var(--goldsoft);display:flex;align-items:center;
+    justify-content:center;box-shadow:0 5px 16px rgba(0,0,0,.55);
+    transition:transform .15s linear;
+  }
+  .car svg{width:24px}
+
+  .pop{font:400 11px 'Montserrat',sans-serif}
+  .pop .pop-day,.pop .pop-tag{display:block;font-size:8px;font-weight:600;letter-spacing:.26em;
+    text-transform:uppercase;color:var(--gold);margin-bottom:3px}
+  .pop b{display:block;font-family:'Cormorant Garamond',serif;font-size:19px;
+    font-weight:600;color:var(--forest);line-height:1.1;margin-bottom:3px}
+  .pop .pop-leg{display:block;font-size:9.5px;font-weight:600;color:var(--gold);margin-bottom:3px}
+  .pop .pop-cum{display:block;font-size:8.5px;color:#8a928c;letter-spacing:.06em;margin-bottom:4px}
+  .pop .pop-note{display:block;color:#4c5a52;line-height:1.55;margin-bottom:7px}
+  .pop-act{
+    display:block;width:100%;margin:0 0 7px;padding:7px 10px;border-radius:3px;
+    border:1px solid var(--gold);background:transparent;color:var(--forest);
+    font:600 10px 'Montserrat',sans-serif;letter-spacing:.08em;text-transform:uppercase;
+    cursor:pointer;transition:.2s;
+  }
+  .pop-act:hover{background:rgba(184,146,60,.15)}
+  .pop-act.on{background:var(--gold);color:var(--deep)}
+  .pop a{color:var(--forest);font-weight:600;text-decoration:none;
+    border-bottom:1px solid var(--gold)}
+  .leaflet-popup-content-wrapper{
+    background:var(--paper);color:var(--ink);border-radius:4px;
+    border:1px solid rgba(184,146,60,.6);
+    box-shadow:0 12px 34px rgba(12,43,35,.4);
+  }
+  .leaflet-popup-tip{background:var(--paper)}
+
+  body.embed header,body.embed #panel,body.embed #veil,
+  body.embed #tools,body.embed #wishFab,body.embed #wish,body.embed #toast,
+  body.embed #bveil{display:none}
+
+  @media(max-width:840px){
+    header{padding:10px 12px;gap:10px}
+    .brand h1{font-size:19px}
+    .switch{width:100%;order:3;margin-left:0}
+    .switch button{flex:1 1 calc(50% - 6px);padding:11px 6px;font-size:9.5px}
+    .switch #btnCustom{flex:1 1 100%}
+    .tourbar{top:10px;bottom:auto;max-width:calc(100% - 20px)}
+    .tourbar #tourInfo{max-width:120px}
+    #tools{top:64px;left:10px}
+    #toast{top:64px}
+    #panel{top:auto;bottom:10px;left:10px;right:10px;width:auto;max-height:48vh}
+    #panel ol{max-height:30vh}
+    #wishFab{left:10px;bottom:76px}
+    #wish{left:10px;bottom:132px;max-height:40vh}
+    .builder{width:100%}
+    .daypick{flex-wrap:wrap}
+    .daypick button{flex:1 1 calc(50% - 4px)}
+    .chips{max-height:28vh}
+    .b-foot button{flex:1 1 100%}
+    .mini-stats{font-size:11.5px}
+    .mini-stats b{font-size:13.5px}
+    .stop-txt .leg{font-size:10px}
+    .panel-foot{font-size:10px}
+    .fair-fare{font-size:10px}
+    .fair-fare .ff-t{font-size:9px}
+    .pop .pop-leg{font-size:10.5px}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <div class="logo">
+      <svg viewBox="0 0 26 14" aria-hidden="true">
+        <path d="M1.5 9.5c0-1.8 1-2.7 3-2.9l3.2-3.9h6.6l3 3.9c2 .2 3.2 1.1 3.2 2.9v1.3h-2.1a2.4 2.4 0 0 1-4.6 0H8.2a2.4 2.4 0 0 1-4.6 0H1.5z" fill="#d4af5e"/>
+        <path d="M9.3 4.4h4.3l1.7 2.2H9.3z" fill="#123f33"/>
+      </svg>
+    </div>
+    <div>
+      <span class="eyebrow">Live Satellite Route Map · Sri Lanka</span>
+      <h1>Spacia Cab Service</h1>
+    </div>
+  </div>
+  <nav class="switch">
+    <button id="btnTwo">2-Day · 240 km · $79</button>
+    <button id="btnThree">3-Day · 380 km · $126</button>
+    <button id="btnFive" class="on">5-Day · 630 km · $209</button>
+    <button id="btnSeven">7-Day · 860 km · $285</button>
+    <button id="btnCustom">✎ Custom Tour · 1–4 Days</button>
+  </nav>
+</header>
+
+<div id="mapwrap">
+  <div id="map"></div>
+
+  <nav id="tools" aria-label="Map tools">
+    <button class="tool" id="toolPOI" title="Show / hide places of interest">
+      <svg viewBox="0 0 24 24"><rect x="7.5" y="7.5" width="9" height="9" transform="rotate(45 12 12)"/></svg>
+    </button>
+    <button class="tool" id="toolLocate" title="Where am I?">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3"/></svg>
+    </button>
+    <button class="tool" id="toolFS" title="Fullscreen">
+      <svg viewBox="0 0 24 24"><path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5"/></svg>
+    </button>
+    <button class="tool" id="toolShare" title="Copy share link">
+      <svg viewBox="0 0 24 24"><path d="M10.5 13.5a4.2 4.2 0 0 0 6 0l3-3a4.24 4.24 0 1 0-6-6l-1.7 1.7"/><path d="M13.5 10.5a4.2 4.2 0 0 0-6 0l-3 3a4.24 4.24 0 1 0 6 6l1.7-1.7"/></svg>
+    </button>
+  </nav>
+
+  <div class="tourbar">
+    <button id="btnPrev" class="nav" title="Previous stop">‹</button>
+    <button id="btnTour">▶&nbsp;Start Tour</button>
+    <span id="tourInfo">Tap a gold stop, or press Play</span>
+    <button id="btnNext" class="nav" title="Next stop">›</button>
+    <button id="btnFit" class="nav" title="Show whole route">⤢</button>
+    <div id="tprog"><i></i></div>
+  </div>
+
+  <div id="toast"></div>
+
+  <div id="veil">
+    <div class="intro">
+      <span class="eyebrow">Spacia Cab Service · Sri Lanka</span>
+      <h2>Ayubowan!</h2>
+      <div class="tag">Welcome — shall we show you the island?</div>
+      <p>This live satellite map follows our private tour routes in your own
+      Suzuki Spacia, with K.P. Kumar as your personal driver. Prefer your own
+      journey? Build a custom 1–4 day tour — every leg is <b>measured live on the
+      real road network</b>, and we check honestly whether it fits, at a
+      comfortable ~350 km of driving per day.</p>
+      <div class="fair-line">Total kilometres are <b>measured on the real road network</b>
+      (live routing data) and include a small allowance for hotel transfers and detours —
+      the actual distance travelled may still vary slightly. Your final fare is calculated on
+      the <b>actual kilometres travelled</b> (LKR 100 or US $ 0.33 / km), measured from the
+      <b>odometer reading at the start and end</b> of your tour. A photo of the
+      <b>starting reading</b> is shared with you when your tour begins.</div>
+      <div class="btns">
+        <button class="ghost" data-route="two">2-Day Kandy · 240 km · ≈ $79</button>
+        <button class="ghost" data-route="three">3-Day Culture · 380 km · ≈ $126</button>
+        <button class="primary" data-route="five">5-Day Highlights · 630 km · ≈ $209</button>
+        <button class="ghost" data-route="seven">7-Day Grand Tour · 860 km · ≈ $285</button>
+        <button class="ghost" data-route="custom">✎ Build My Custom Tour · 1–4 Days</button>
+      </div>
+      <button class="skip" id="skipIntro">No thanks — just let me explore the map</button>
+    </div>
+  </div>
+
+  <div id="bveil">
+    <div class="builder">
+      <div class="b-head">
+        <div>
+          <span class="eyebrow">Design your own journey</span>
+          <h2>Custom Tour Builder</h2>
+        </div>
+        <button class="b-close" id="bClose" title="Close">✕</button>
+      </div>
+      <div class="b-body">
+        <div class="b-sec">1 · How many days?</div>
+        <div class="daypick">
+          <button data-days="1">1 Day<small>day-trip range</small></button>
+          <button data-days="2" class="on">2 Days<small>island highlights</small></button>
+          <button data-days="3">3 Days<small>the far corners</small></button>
+          <button data-days="4">4 Days<small>grand island loop</small></button>
+        </div>
+        <div class="b-sec" style="margin-top:12px">2 · Pick your destinations — measured on real roads</div>
+        <div class="chips" id="chips"></div>
+        <div class="b-est" id="bEst">Select destinations — distances will be measured live on the real road network.</div>
+        <div class="b-note">Tours start and end in the Colombo / Airport area. Every leg is
+        <b>routed on the actual road network</b> (live OpenStreetMap routing — expressways
+        included automatically where they are the best road) and a small allowance for hotel
+        transfers and detours is quietly included, so estimates land close to the real meter.
+        For safety and comfort we plan a maximum of <b>~350 km of driving per day, including
+        the return</b>. <b>Prices are approximate</b> — the final amount is calculated on the
+        <b>actual kilometres travelled</b> at LKR 100 or US $ 0.33 / km, measured from the <b>odometer
+        reading at the start and end</b> of your tour; the starting reading is photographed
+        and shared with you when the tour begins. K.P. Kumar confirms your exact route and
+        final fare.</div>
+      </div>
+      <div class="b-foot">
+        <button id="bView" disabled>🗺&nbsp;View on Map</button>
+        <button id="bWa" disabled>💬&nbsp;Send to K.P. Kumar</button>
+        <button id="bClear">Clear All</button>
+      </div>
+    </div>
+  </div>
+
+  <aside id="panel">
+    <div class="panel-head" id="panelToggle">
+      <div>
+        <span class="eyebrow">Your itinerary</span>
+        <h2 id="routeTitle">5-Day Highlights</h2>
+        <div class="mini-stats">≈ <b id="statKm">—</b> · <b id="statH">—</b> on the road<br>LKR <b id="statLkr">—</b> · <b id="statUsd">—</b></div>
+      </div>
+      <button class="chev" title="Show / hide list">▾</button>
+    </div>
+    <ol id="stops"></ol>
+    <div class="panel-foot">
+      <button class="wa-btn" id="waRoute">💬&nbsp;Enquire on WhatsApp</button>
+
+      <div class="fair-fare">
+        <span class="ff-t">
+          <svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 13l4.2-4.2"/><path d="M6.5 13H8M16 13h1.5M12 8.5V10"/></svg>
+          Transparent fare — how your price works
+        </span>
+        Total kilometres are <b>measured on the real road network</b> with a small allowance
+        for hotel transfers and detours — the actual distance travelled may still vary slightly.
+        Your final amount is calculated on the <b>actual kilometres</b> at <b>LKR 100 / km</b>,
+        measured from the <b>odometer reading at the start and end</b> of your tour. When your
+        tour begins, K.P. Kumar photographs the <b>starting reading</b> and shares the image
+        with you — every kilometre is honest and verifiable.
+      </div>
+
+      <p><b>Spacia Cab Service</b> · Your driver: <b>K.P. Kumar</b><br>
+      Suzuki Spacia · Japan · 2023 · WhatsApp <b>+94 78 565 7954</b><br>
+      LKR 100 / km · ≈ US$ 0.33 · US$ indicative at LKR 302 = US$ 1</p>
+    </div>
+  </aside>
+
+  <button id="wishFab" title="My trip list">
+    <svg viewBox="0 0 24 24"><path d="M12 21s-7.2-4.7-9.6-9.1C.6 8.3 2.6 5 6 5c2.1 0 3.5 1.2 4.4 2.6C11.3 6.2 12.7 5 14.8 5c3.4 0 5.4 3.3 3.6 6.9C16 16.3 12 21 12 21z" fill="currentColor"/></svg>
+    <span id="wishBadge"></span>
+  </button>
+  <div id="wish">
+    <div class="wish-head">
+      <b>My Trip</b>
+      <span id="wishCount">0 places</span>
+      <button id="wishClose" title="Close">✕</button>
+    </div>
+    <ol id="wishList"></ol>
+    <div class="wish-foot">
+      <button class="wa-btn" id="waWish">💬&nbsp;Request custom quote</button>
+      <button class="wish-build" id="wishBuild">✎&nbsp;Build custom tour from this list</button>
+      <button class="wish-clear" id="wishClear">Clear list</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ═══════════════════════════════════════════════════════════════
+   CONFIG — Spacia Cab Service
+   whatsapp : K.P. Kumar · +94 78 565 7954 (digits only, no +)
+   usdRate  : LKR per US$ 1 — one number to update when it moves.
+   ═══════════════════════════════════════════════════════════════ */
+const CONFIG = {
+  whatsapp : '94785657954',   /* K.P. Kumar · +94 78 565 7954 */
+  usdRate  : 302,
+};
+
+/* ————— places (pinned at attraction / town centres) ————— */
+const P = {
+  airport:  {name:"Bandaranaike Intl Airport", lat:7.1808, lng:79.8841},
+  negombo:  {name:"Negombo",   lat:7.2083, lng:79.8358},
+  colombo:  {name:"Colombo",   lat:6.9271, lng:79.8612},
+  dambulla: {name:"Dambulla",  lat:7.8563, lng:80.6513},
+  sigiriya: {name:"Sigiriya",  lat:7.9570, lng:80.7603},
+  kandy:    {name:"Kandy",     lat:7.2936, lng:80.6394},
+  nuwara:   {name:"Nuwara Eliya", lat:6.9497, lng:80.7891},
+  ella:     {name:"Ella",      lat:6.8667, lng:81.0466},
+  udawalawe:{name:"Udawalawe", lat:6.4727, lng:80.8926},
+  yala:     {name:"Yala · Tissamaharama", lat:6.3520, lng:81.4150},
+  south:    {name:"Mirissa · South Coast", lat:5.9483, lng:80.4716},
+  galle:    {name:"Galle",     lat:6.0596, lng:80.2170},
+};
+
+const POIS = [
+  {id:'pinnawala',  name:"Pinnawala Elephant Orphanage", tag:"Wildlife",  lat:7.0300, lng:80.4250, blurb:"Meet the herd — and watch them cross the road to their river bath."},
+  {id:'horton',     name:"Horton Plains · World's End",   tag:"Nature",    lat:6.7955, lng:80.7861, blurb:"Mist grasslands and a sheer 870 m escarpment drop. Go at sunrise."},
+  {id:'adams',      name:"Adam's Peak · Sri Pada",        tag:"Pilgrimage",lat:6.8097, lng:80.4994, blurb:"The sacred cone, climbed by night for a legendary sunrise."},
+  {id:'kitulgala',  name:"Kitulgala",                     tag:"Adventure", lat:6.9936, lng:80.4167, blurb:"White-water rafting on the Kelani river."},
+  {id:'polonnaruwa',name:"Polonnaruwa Ancient City",      tag:"Heritage",  lat:7.9426, lng:81.0176, blurb:"Cycle among 12th-century palaces and the Gal Vihara Buddhas."},
+  {id:'anuradhapura',name:"Anuradhapura Sacred City",     tag:"Heritage",  lat:8.3536, lng:80.3763, blurb:"2,000-year-old stupas and the sacred Bo tree."},
+  {id:'minneriya',  name:"Minneriya National Park",       tag:"Wildlife",  lat:8.0333, lng:80.8833, blurb:"Home of the famous elephant gathering (Jun–Sep)."},
+  {id:'trinco',     name:"Trincomalee · Nilaveli",        tag:"Beach",     lat:8.5874, lng:81.2152, blurb:"Harbour town and powder-white east-coast sands."},
+  {id:'pasikuda',   name:"Pasikuda Bay",                  tag:"Beach",     lat:7.9194, lng:81.7078, blurb:"Calm, shallow turquoise bay for unhurried swimming."},
+  {id:'arugam',     name:"Arugam Bay",                    tag:"Surf",      lat:6.8404, lng:81.8353, blurb:"World-famous right-hand point break (May–Sep)."},
+  {id:'jaffna',     name:"Jaffna",                        tag:"Culture",   lat:9.6615, lng:80.0255, blurb:"Tamil temples, island hopping and the distinct warm north."},
+  {id:'wilpattu',   name:"Wilpattu National Park",        tag:"Wildlife",  lat:8.4275, lng:79.9289, blurb:"The island's largest park — leopards and jungle lakes."},
+  {id:'hikkaduwa',  name:"Hikkaduwa",                     tag:"Beach",     lat:6.1395, lng:80.1063, blurb:"Coral-snorkelling and a lively surf town."},
+  {id:'bentota',    name:"Bentota",                       tag:"Beach",     lat:6.4256, lng:79.9933, blurb:"Classic west-coast resort beaches and river safaris."},
+  {id:'sinharaja',  name:"Sinharaja Rainforest",          tag:"Nature",    lat:6.4076, lng:80.4258, blurb:"UNESCO lowland rainforest — birds and endemics everywhere."},
+  {id:'kalpitiya',  name:"Kalpitiya",                     tag:"Adventure", lat:8.2292, lng:79.7614, blurb:"Kitesurfing lagoons and dolphin-watching boats."},
+];
+
+POIS.forEach(p => P[p.id] = {name:p.name, lat:p.lat, lng:p.lng});
+
+const ALL = {};
+Object.entries(P).forEach(([k,v]) => ALL[k] = v.name);
+
+/* ————— preset routes (owner-verified figures — the most
+   accurate data of all; unchanged) ————— */
+const ROUTES = {
+  two: {
+    title:"2-Day Kandy Express",
+    stops:[
+      {p:'airport', day:'Day 1', label:'Airport · Arrival', note:'Met at the gate — transfer to Kandy', km:0},
+      {p:'kandy',   day:'Day 1', note:'Kandy Lake & the evening Temple of the Tooth ceremony', km:120, kmTxt:'≈120 km', t:'~3–3.5 h', h:3.25},
+      {p:'airport', day:'Day 2', label:'Airport · Departure', note:'Morning at Peradeniya Botanical Gardens, then a scenic return', km:120, kmTxt:'≈120 km', t:'~3–3.5 h', h:3.25},
+    ],
+    path:[
+      [7.181,79.884],[7.140,79.895],[7.050,79.930],[7.000,79.955],[7.080,80.040],
+      [7.140,80.090],[7.190,80.160],[7.220,80.230],[7.240,80.300],[7.250,80.380],
+      [7.250,80.450],[7.255,80.520],[7.265,80.590],[7.293,80.639],
+      [7.265,80.590],[7.255,80.520],[7.250,80.450],[7.250,80.380],[7.240,80.300],
+      [7.220,80.230],[7.190,80.160],[7.140,80.090],[7.080,80.040],[7.000,79.955],
+      [7.050,79.930],[7.140,79.895],[7.181,79.884]
+    ]
+  },
+  three: {
+    title:"3-Day Culture & Kandy",
+    stops:[
+      {p:'airport',  day:'Day 1', label:'Airport · Arrival', note:'Met at the gate — transfer to your hotel', km:0},
+      {p:'negombo',  day:'Day 1', note:'Lagoon-side first night by the coast',   km:12,  kmTxt:'12 km',  t:'~25 min', h:0.4},
+      {p:'dambulla', day:'Day 2', note:'Golden cave temples & reclining Buddha', km:130, kmTxt:'130 km', t:'3–3.5 h', h:3.25},
+      {p:'sigiriya', day:'Day 2', note:'The Lion Rock fortress at sunset',       km:24,  kmTxt:'24 km',  t:'~40 min', h:0.7},
+      {p:'kandy',    day:'Day 3', note:'The last royal kingdom — Temple of the Tooth', km:95, kmTxt:'95 km', t:'2.5–3 h', h:2.75},
+      {p:'airport',  day:'Day 3', label:'Airport · Departure', note:'Farewell & departure', km:120, kmTxt:'≈120 km', t:'~3–3.5 h', h:3.25},
+    ],
+    path:[
+      [7.181,79.884],[7.208,79.836],[7.24,79.83],[7.36,79.95],[7.44,80.10],
+      [7.49,80.37],[7.55,80.35],[7.68,80.48],[7.86,80.65],[7.95,80.76],
+      [7.86,80.65],[7.69,80.59],[7.55,80.62],[7.42,80.62],[7.29,80.64],
+      [7.265,80.590],[7.255,80.520],[7.250,80.450],[7.250,80.380],[7.240,80.300],
+      [7.220,80.230],[7.190,80.160],[7.140,80.090],[7.080,80.040],[7.000,79.955],
+      [7.050,79.930],[7.140,79.895],[7.181,79.884]
+    ]
+  },
+  five: {
+    title:"5-Day Highlights",
+    stops:[
+      {p:'airport',  day:'Day 1', label:'Airport · Arrival', note:'Met at the gate — transfer to your hotel', km:0},
+      {p:'negombo',  day:'Day 1', note:'Lagoon-side first night by the coast',   km:12,  kmTxt:'12 km',  t:'~25 min',    h:0.4},
+      {p:'dambulla', day:'Day 2', note:'Golden cave temples & reclining Buddha', km:130, kmTxt:'130 km', t:'3–3.5 h',    h:3.25},
+      {p:'sigiriya', day:'Day 2', note:'The Lion Rock fortress at sunset',       km:24,  kmTxt:'24 km',  t:'~40 min',    h:0.7},
+      {p:'kandy',    day:'Day 3', note:'Temple of the Tooth & Kandy Lake',      km:95,  kmTxt:'95 km',  t:'2.5–3 h',    h:2.75},
+      {p:'nuwara',   day:'Day 4', note:'Tea factories, waterfalls, Little England', km:77, kmTxt:'77 km', t:'~2.5 h',    h:2.5},
+      {p:'ella',     day:'Day 4', note:'Nine Arch Bridge & ridge views',        km:55,  kmTxt:'55 km',  t:'1.5–2 h',    h:1.75},
+      {p:'colombo',  day:'Day 5', note:'Scenic return through the hills',       km:200, kmTxt:'≈200 km', t:'~4.5–5 h',  h:4.75},
+      {p:'airport',  day:'Day 5', label:'Airport · Departure', note:'Farewell & departure', km:35, kmTxt:'35 km', t:'~1 h', h:1},
+    ],
+    path:[
+      [7.181,79.884],[7.208,79.836],[7.24,79.83],[7.36,79.95],[7.44,80.10],
+      [7.49,80.37],[7.55,80.35],[7.68,80.48],[7.86,80.65],[7.95,80.76],
+      [7.86,80.65],[7.69,80.59],[7.55,80.62],[7.42,80.62],[7.29,80.64],
+      [7.26,80.60],[7.16,80.57],[7.05,80.63],[6.95,80.79],
+      [6.93,80.85],[6.90,80.92],[6.83,81.00],[6.87,81.05],
+      [6.77,80.95],[6.66,80.80],[6.63,80.68],[6.68,80.40],[6.75,80.15],
+      [6.85,79.95],[6.93,79.86],[7.18,79.88]
+    ]
+  },
+  seven: {
+    title:"7-Day Grand Island Tour",
+    stops:[
+      {p:'airport',   day:'Day 1',   label:'Airport · Arrival', note:'Met at the gate — transfer to your hotel', km:0},
+      {p:'negombo',   day:'Day 1',   note:'First night by the lagoon',              km:12,  kmTxt:'12 km',  t:'~25 min',  h:0.4},
+      {p:'dambulla',  day:'Day 2',   note:'Golden cave temples',                    km:130, kmTxt:'130 km', t:'3–3.5 h',  h:3.25},
+      {p:'sigiriya',  day:'Day 2',   note:'The Lion Rock at sunset',                km:24,  kmTxt:'24 km',  t:'~40 min',  h:0.7},
+      {p:'kandy',     day:'Day 3',   note:'The last royal kingdom',                km:95,  kmTxt:'95 km',  t:'2.5–3 h',  h:2.75},
+      {p:'nuwara',    day:'Day 4',   note:'The emerald tea highlands',             km:77,  kmTxt:'77 km',  t:'~2.5 h',   h:2.5},
+      {p:'ella',      day:'Day 4–5', note:'Nine Arch Bridge at dawn',              km:55,  kmTxt:'55 km',  t:'1.5–2 h',  h:1.75},
+      {p:'udawalawe', day:'Day 5',   note:'Elephant country — safari plains',      km:90,  kmTxt:'90 km',  t:'2–2.5 h',  h:2.25},
+      {p:'yala',      day:'Day 5',   label:'Yala / Tissamaharama', note:'Leopards at first light', km:80, kmTxt:'80 km', t:'~2 h', h:2},
+      {p:'south',     day:'Day 6',   note:'Whales & the southern sands · Mirissa', km:105, kmTxt:'105 km', t:'2–2.5 h',  h:2.25},
+      {p:'galle',     day:'Day 6',   note:'The old Dutch fort at dusk',            km:36,  kmTxt:'36 km',  t:'~1 h',     h:1},
+      {p:'colombo',   day:'Day 7',   note:'Coastal return via the expressway',     km:120, kmTxt:'120 km', t:'1.5–2 h',  h:1.75},
+      {p:'airport',   day:'Day 7',   label:'Airport · Departure', note:'Farewell & departure', km:35, kmTxt:'35 km', t:'~1 h', h:1},
+    ],
+    path:[
+      [7.181,79.884],[7.208,79.836],[7.24,79.83],[7.36,79.95],[7.44,80.10],
+      [7.49,80.37],[7.55,80.35],[7.68,80.48],[7.86,80.65],[7.95,80.76],
+      [7.86,80.65],[7.69,80.59],[7.55,80.62],[7.42,80.62],[7.29,80.64],
+      [7.26,80.60],[7.16,80.57],[7.05,80.63],[6.95,80.79],
+      [6.93,80.85],[6.90,80.92],[6.83,81.00],[6.87,81.05],
+      [6.79,81.05],[6.73,81.10],[6.55,81.02],[6.47,80.89],
+      [6.40,81.05],[6.34,81.20],[6.28,81.29],[6.35,81.41],
+      [6.25,81.34],[6.14,81.08],[6.02,80.79],[5.95,80.55],[5.95,80.47],
+      [6.06,80.22],[6.14,80.10],[6.28,80.03],[6.42,79.99],[6.58,79.96],
+      [6.75,79.92],[6.93,79.86],[7.18,79.88]
+    ]
+  }
+};
+
+/* ═══════════════════════════════════════════════════════════
+   CUSTOM TOUR BUILDER — LIVE ROAD ROUTING EDITION
+   v  : realistic visiting time at the place (hours)
+   md : minimum days needed from Colombo (1–4)
+   ═════════════════════════════════════════════════════════ */
+const CUSTOM_PLACES=[
+  {id:'negombo',     tag:'Coast',     v:1,   md:1},
+  {id:'colombo',     tag:'City',      v:2,   md:1},
+  {id:'dambulla',    tag:'Heritage',  v:1.5, md:1},
+  {id:'sigiriya',    tag:'Heritage',  v:3.5, md:1},
+  {id:'kandy',       tag:'Culture',   v:2.5, md:1},
+  {id:'kitulgala',   tag:'Adventure', v:3,   md:1},
+  {id:'galle',       tag:'Heritage',  v:2,   md:1},
+  {id:'hikkaduwa',   tag:'Beach',     v:2,   md:1},
+  {id:'bentota',     tag:'Beach',     v:2,   md:1},
+  {id:'pinnawala',   tag:'Wildlife',  v:1.5, md:1},
+  {id:'kalpitiya',   tag:'Adventure', v:2.5, md:1},
+  {id:'nuwara',      tag:'Tea Hills', v:1.5, md:2},
+  {id:'ella',        tag:'Tea Hills', v:2,   md:2},
+  {id:'udawalawe',   tag:'Wildlife',  v:3,   md:2},
+  {id:'yala',        tag:'Wildlife',  v:4,   md:2},
+  {id:'south',       tag:'Beach',     v:2,   md:2},
+  {id:'horton',      tag:'Nature',    v:4,   md:2},
+  {id:'adams',       tag:'Pilgrimage',v:8,   md:2},
+  {id:'polonnaruwa', tag:'Heritage',  v:3,   md:2},
+  {id:'anuradhapura',tag:'Heritage',  v:3,   md:2},
+  {id:'minneriya',   tag:'Wildlife',  v:3,   md:2},
+  {id:'wilpattu',    tag:'Wildlife',  v:4,   md:2},
+  {id:'sinharaja',   tag:'Nature',    v:4,   md:2},
+  {id:'trinco',      tag:'Beach',     v:2,   md:3},
+  {id:'pasikuda',    tag:'Beach',     v:2,   md:3},
+  {id:'arugam',      tag:'Surf',      v:2,   md:3},
+  {id:'jaffna',      tag:'Culture',   v:3,   md:4},
+];
+const sel=new Set();
+let bDays=2;
+
+/* ── OWNER TUNING KNOBS ─────────────────────────────────────── */
+const KM_BUFFER=1.10;      /* OWNER-ONLY: hidden +10% allowance for hotel
+                              transfers & detours, quietly inside every km
+                              shown. With real road km as the base, final
+                              bills typically land AT or BELOW the estimate.
+                              1.00 = off, 1.05 = slimmer margin.           */
+const TIME_SCALE=1.25;     /* routing engines assume free-flow; island
+                              reality is ~25% slower. Tunable.              */
+const FALLBACK_ROAD=1.28;  /* offline straight-line → road factor           */
+const FALLBACK_SPEED=35;   /* offline average km/h                          */
+const DAY_ACTIVITY=11;     /* usable hours per day (drive + visit)          */
+const DAY_KM_MAX=350;      /* OWNER RULE: max km driving per day            */
+const BASE=[7.1808,79.8841];  /* Colombo / Airport anchor                  */
+
+/* fallback speeds (offline mode only) */
+const BASE_SPEED={
+  galle:75, south:70, hikkaduwa:70, bentota:70, yala:60, udawalawe:50,
+  negombo:45, kalpitiya:42, colombo:30,
+  kandy:35, nuwara:28, ella:30, horton:26, adams:28, sinharaja:28,
+  dambulla:40, sigiriya:38, polonnaruwa:40, minneriya:38, anuradhapura:45,
+  wilpattu:40, jaffna:45, trinco:42, pasikuda:42, arugam:38,
+  pinnawala:42, kitulgala:38
+};
+
+/* offline road-distance table — owner-verified figures plus
+   well-known main-route distances. Used ONLY when live routing
+   is unreachable; live routing overrides everything.           */
+const KNOWN_KM={
+  'airport|colombo':35,'airport|kandy':105,'airport|negombo':12,
+  'bentota|galle':50,'bentota|hikkaduwa':25,
+  'colombo|anuradhapura':203,'colombo|bentota':65,'colombo|dambulla':148,
+  'colombo|ella':215,'colombo|galle':120,'colombo|hikkaduwa':88,
+  'colombo|jaffna':395,'colombo|kandy':116,'colombo|kitulgala':90,
+  'colombo|negombo':38,'colombo|nuwara':165,'colombo|pinnawala':85,
+  'colombo|sigiriya':172,'colombo|south':145,'colombo|trinco':250,
+  'colombo|udawalawe':170,'colombo|yala':240,
+  'dambulla|anuradhapura':62,'dambulla|kandy':72,'dambulla|polonnaruwa':68,
+  'dambulla|sigiriya':24,'dambulla|trinco':100,
+  'ella|nuwara':55,'ella|udawalawe':90,
+  'galle|hikkaduwa':20,'galle|south':36,
+  'horton|nuwara':25,
+  'kandy|anuradhapura':134,'kandy|ella':130,'kandy|nuwara':77,
+  'kandy|pinnawala':45,'kandy|sigiriya':95,
+  'kitulgala|nuwara':85,
+  'negombo|dambulla':130,
+  'sigiriya|polonnaruwa':52,
+  'south|yala':105,'udawalawe|yala':80
+};
+
+function placeInfo(id){ return CUSTOM_PLACES.find(c=>c.id===id)||{v:1,md:1} }
+
+/* ═══════════ LIVE ROAD ROUTING (OpenStreetMap / OSRM) ═══════════
+   Every custom-tour leg is routed on the actual road network and
+   returns REAL road kilometres + drive time. Results are cached in
+   localStorage so repeat plans are instant. If the routing service
+   is unreachable, we fall back to the table above and say so.   */
+const OSRM_URL='https://router.project-osrm.org/route/v1/driving/';
+const legMem=new Map();
+
+function legKey(a,b){
+  return [a[0].toFixed(4)+'_'+a[1].toFixed(4), b[0].toFixed(4)+'_'+b[1].toFixed(4)]
+         .sort().join('__');
+}
+function decodePolyline(str){
+  const coords=[]; let idx=0, lat=0, lng=0;
+  while(idx<str.length){
+    let result=0, shift=0, b;
+    do{ b=str.charCodeAt(idx++)-63; result+=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
+    lat += (result&1)? ~(result>>1) : (result>>1);
+    result=0; shift=0;
+    do{ b=str.charCodeAt(idx++)-63; result+=(b&0x1f)<<shift; shift+=5; }while(b>=0x20);
+    lng += (result&1)? ~(result>>1) : (result>>1);
+    coords.push([lat/1e5, lng/1e5]);
+  }
+  return coords;
+}
+function fallbackLeg(aId,bId,a,b){
+  const k=[aId,bId].sort().join('|');
+  const km=(KNOWN_KM[k]!=null)?KNOWN_KM[k]:hav(a,b)*FALLBACK_ROAD;
+  const sp=(aId==='airport'||bId==='airport')
+    ? (BASE_SPEED[(aId==='airport')?bId:aId]||FALLBACK_SPEED) : FALLBACK_SPEED;
+  return {km, h:km/sp, live:false, geom:null};
+}
+async function fetchLeg(aId,bId){
+  const a=[P[aId].lat,P[aId].lng], b=[P[bId].lat,P[bId].lng];
+  const k=legKey(a,b);
+  if(legMem.has(k)) return legMem.get(k);
+  /* persisted distance cache (survives reloads) */
+  try{
+    const s=localStorage.getItem('spl_'+k);
+    if(s){ const v=JSON.parse(s); v.live=true; v.geom=null;
+           legMem.set(k,v); return v; }
+  }catch(e){}
+  const ctrl=new AbortController();
+  const to=setTimeout(()=>ctrl.abort(), 8000);
+  try{
+    const r=await fetch(
+      `${OSRM_URL}${a[1]},${a[0]};${b[1]},${b[0]}?overview=simplified`,
+      {signal:ctrl.signal});
+    clearTimeout(to);
+    const j=await r.json();
+    if(j.code!=='Ok'||!j.routes||!j.routes.length) throw new Error('no route');
+    const rt=j.routes[0];
+    const v={km:rt.distance/1000,
+             h:rt.duration/3600*TIME_SCALE,
+             geom:decodePolyline(rt.geometry),
+             live:true};
+    legMem.set(k,v);
+    try{ localStorage.setItem('spl_'+k,
+      JSON.stringify({km:+v.km.toFixed(2), h:+v.h.toFixed(2)})) }catch(e){}
+    return v;
+  }catch(e){
+    clearTimeout(to);
+    const v=fallbackLeg(aId,bId,a,b);
+    legMem.set(k,v);
+    return v;
+  }
+}
+
+/* ————— map: satellite + place names ————— */
+const map = L.map('map', {zoomControl:false, minZoom:6, maxZoom:18}).setView([7.5,80.9], 8);
+L.control.zoom({position:'bottomright'}).addTo(map);
+map.attributionControl.setPrefix('');
+
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+  {maxZoom:18, attribution:'Satellite imagery © Esri'}).addTo(map);
+L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}',
+  {maxZoom:18}).addTo(map);
+
+map.setMaxBounds([[4.8,77.6],[10.2,83.2]]);
+
+/* ————— small helpers ————— */
+function hav(a,b){
+  const R=6371,r=Math.PI/180,dLat=(b[0]-a[0])*r,dLng=(b[1]-a[1])*r,
+        s=Math.sin(dLat/2)**2+Math.cos(a[0]*r)*Math.cos(b[0]*r)*Math.sin(dLng/2)**2;
+  return 2*R*Math.asin(Math.sqrt(s));
+}
+function usd(lkr){ return '≈ $' + Math.round(lkr/CONFIG.usdRate).toLocaleString() }
+function cumulative(i){ let s=0; for(let k=1;k<=i;k++) s+=currentStops[k].km; return Math.round(s) }
+function bearing(a,b){
+  const dx=(b[1]-a[1])*Math.cos(a[0]*Math.PI/180), dy=b[0]-a[0];
+  return Math.atan2(dx,dy)*180/Math.PI;
+}
+function fmtH(h){ return '~'+Math.max(.25,Math.round(h*2)/2)+' h' }
+function fmtV(v){ const w=Math.floor(v), hf=v-w; return (hf?(w?w+'½':'½'):w)+' h' }
+
+let toastT;
+function toast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('show'),2600);
+}
+
+/* ————— WhatsApp ————— */
+const FARE_NOTE =
+  'Note: I understand the total km is measured on the real road network (with a small allowance for transfers/detours) and may vary slightly — the final fare is calculated on the actual kilometres travelled (LKR 100/km), measured from the odometer reading at the start and end of the tour. The starting reading is photographed and shared with me when the tour begins.';
+
+function waOpen(msg){
+  window.open(`https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent(msg)}`,'_blank');
+}
+function routeMsg(){
+  if(current==='custom'&&ROUTES.custom) return customMsg();
+  const R=ROUTES[current];
+  const km=Math.round(R.stops.reduce((a,s)=>a+(s.km||0),0));
+  const lkr=km*100, us=Math.round(lkr/CONFIG.usdRate);
+  return `Ayubowan! I found your Spacia Cab Service route map and I'm interested in the *${R.title}*.\nDistance ≈ ${km} km · LKR ${lkr.toLocaleString()} (≈ US$ ${us}).\n${FARE_NOTE}\nCould you please send me a quotation?`;
+}
+function customMsg(){
+  const R=ROUTES.custom;
+  const f=checkFeasibility();
+  const km=Math.round(R.stops.reduce((a,s)=>a+(s.km||0),0));
+  const lkr=km*100, us=Math.round(lkr/CONFIG.usdRate);
+  const list=R.stops.filter(s=>s.p!=='airport')
+    .map((s,i)=>`${i+1}. ${P[s.p].name} (${s.day})`).join('\n');
+  const status=f.verdict==='tight'
+    ? '⚠ Tight schedule — early starts expected'
+    : '✓ Comfortable schedule';
+  const routeNote=(livePlan&&livePlan.mode==='live')
+    ? 'measured live on the real road network':'⚠ offline estimate';
+  return `Ayubowan! I'd like a custom private tour with Spacia Cab Service (K.P. Kumar).\n\nDuration: ${R.days} day${R.days>1?'s':''}\nPlaces (suggested order):\n${list}\n\nRough estimate: ≈ ${km} km (${routeNote}) · LKR ${lkr.toLocaleString()} (≈ US$ ${us}) · ~${Math.round((livePlan?livePlan.legs.reduce((a,L)=>a+L.h,0):0))} h driving.\nSchedule check: ${status}\n${FARE_NOTE}\nCould you please send me a quotation?`;
+}
+function wishMsg(){
+  return `Ayubowan! I'd love a custom private tour with Spacia Cab Service (K.P. Kumar) including these places:\n` +
+    wish.map((id,i)=>`${i+1}. ${ALL[id]}`).join('\n') +
+    `\n${FARE_NOTE}\nCould you suggest an itinerary, distance and price?`;
+}
+
+/* ————— icons ————— */
+function stopIcon(i,active){
+  return L.divIcon({className:'', iconSize:[30,30], iconAnchor:[15,15],
+    html:`<div class="stop-mark${active?' active':''}">${i+1}</div>`});
+}
+const poiIcon = L.divIcon({className:'', iconSize:[22,22], iconAnchor:[11,11],
+  html:`<div class="poi-wrap"><div class="poi-mark"></div></div>`});
+const meIcon  = L.divIcon({className:'', iconSize:[16,16], iconAnchor:[8,8],
+  html:`<div class="me"></div>`});
+const carIcon = L.divIcon({className:'', iconSize:[40,40], iconAnchor:[20,20],
+  html:`<div class="car"><svg viewBox="0 0 26 14">
+    <path d="M1.5 9.5c0-1.8 1-2.7 3-2.9l3.2-3.9h6.6l3 3.9c2 .2 3.2 1.1 3.2 2.9v1.3h-2.1a2.4 2.4 0 0 1-4.6 0H8.2a2.4 2.4 0 0 1-4.6 0H1.5z" fill="#e9cf8f"/>
+    <path d="M9.3 4.4h4.3l1.7 2.2H9.3z" fill="#123f33"/></svg></div>`});
+
+/* ————— popups ————— */
+function popupHTML(stop,i){
+  const p=P[stop.p], name=stop.label||p.name;
+  let leg;
+  if(i===0){
+    leg='<span class="pop-leg">Starting point of your journey</span>';
+  }else{
+    const prev=currentStops[i-1];
+    const prevName=prev.label||P[prev.p].name;
+    leg=`<span class="pop-leg">← ${stop.kmTxt} from ${prevName} · ${stop.t}</span>
+         <span class="pop-cum">${cumulative(i)} km from your arrival</span>`;
+  }
+  return `<div class="pop">
+    <span class="pop-day">${stop.day}</span>
+    <b>${i+1} · ${name}</b>
+    ${leg}
+    <span class="pop-note">${stop.note}</span>
+    <button class="pop-act" data-add="${stop.p}">♥ Add to my trip</button>
+    <a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}"
+       target="_blank" rel="noopener">Open in Google Maps ↗</a>
+  </div>`;
+}
+function poiPopup(p){
+  return `<div class="pop">
+    <span class="pop-tag">${p.tag}</span>
+    <b>${p.name}</b>
+    <span class="pop-note">${p.blurb}</span>
+    <button class="pop-act" data-add="${p.id}">♥ Add to my trip</button>
+    <a href="https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}"
+       target="_blank" rel="noopener">Open in Google Maps ↗</a>
+  </div>`;
+}
+
+/* ————— state ————— */
+const routeLayer = L.layerGroup().addTo(map);
+const poiLayer   = L.layerGroup();
+let markers=[], markerTimers=[], poiMarkers=[], poisBuilt=false, poisOn=false,
+    cleanupVehicle=null, meMarker=null,
+    current='five', currentStops=[], currentPath=[];
+const tour={playing:false, idx:0, timer:null};
+const wish=[];
+
+/* ————— labels on zoom ————— */
+function refreshLabels(){
+  const show = map.getZoom() >= 9;
+  const bind=m=>{
+    if(!m) return;
+    if(show && !m._labelBound){
+      m.bindTooltip(m._name,{permanent:true,direction:'top',className:'stop-label',
+        offset:[0,-18],interactive:false});
+      m._labelBound=true;
+    }else if(!show && m._labelBound){
+      m.unbindTooltip(); m._labelBound=false;
+    }
+  };
+  markers.forEach(bind);
+  if(poisOn) poiMarkers.forEach(bind);
+}
+map.on('zoomend', refreshLabels);
+
+/* ————— animated route ————— */
+function drawRoute(points, done){
+  L.polyline(points,{color:'#fff8e7',weight:7,opacity:.55}).addTo(routeLayer);
+  const line = L.polyline([],{
+    color:'#e9cf8f',weight:4,opacity:.95,dashArray:'3 9',
+    lineCap:'round',className:'route-line'
+  }).addTo(routeLayer);
+  const dur=1600,t0=performance.now();
+  (function frame(t){
+    const k=Math.min(1,(t-t0)/dur), e=k<.5?2*k*k:1-((-2*k+2)**2)/2;
+    line.setLatLngs(points.slice(0,Math.max(2,Math.ceil(e*points.length))));
+    if(k<1) requestAnimationFrame(frame); else done&&done();
+  })(t0);
+}
+
+/* ————— your Spacia, on the road ————— */
+function makeVehicle(points){
+  const acc=[0];
+  for(let i=1;i<points.length;i++) acc.push(acc[i-1]+hav(points[i-1],points[i]));
+  const total=acc[acc.length-1], speed=total/65;
+  const m=L.marker(points[0],{icon:carIcon,zIndexOffset:600})
+    .addTo(routeLayer)
+    .bindTooltip('K.P. Kumar — on the road · LKR 100 / km · ≈ US$ 0.33');
+  let dist=0, ang=0, last=performance.now(), raf;
+  (function tick(t){
+    const dt=Math.min(.1,(t-last)/1000); last=t;
+    dist=(dist+speed*dt)%total;
+    let i=acc.length-1;
+    while(i>0 && acc[i]>dist) i--;
+    const f=(dist-acc[i])/Math.max(1e-9,acc[i+1]-acc[i]),
+          a=points[i],b=points[i+1];
+    m.setLatLng([a[0]+(b[0]-a[0])*f, a[1]+(b[1]-a[1])*f]);
+    let d=((bearing(a,b)-ang+540)%360)-180; ang+=d*.15;
+    const el=m.getElement();
+    if(el) el.querySelector('.car').style.transform=`rotate(${ang-90}deg)`;
+    raf=requestAnimationFrame(tick);
+  })(last);
+  return ()=>{cancelAnimationFrame(raf); routeLayer.removeLayer(m)};
+}
+
+/* ————— tour / navigation ————— */
+function setActiveMarker(i){
+  markers.forEach((m,j)=>{ if(m) m.setIcon(stopIcon(j, j===i)) });
+}
+function highlightList(i){
+  document.querySelectorAll('#stops li').forEach(n=>n.classList.remove('active'));
+  const li=document.querySelector(`#stops li[data-key="${i}"]`);
+  if(li){li.classList.add('active'); li.scrollIntoView({block:'nearest',behavior:'smooth'})}
+}
+function goToStop(i){
+  tour.idx=i;
+  const s=currentStops[i], p=P[s.p];
+  map.flyTo([p.lat,p.lng], Math.max(map.getZoom(),10), {duration:1.2});
+  setActiveMarker(i); highlightList(i); updateTourUI(); setHash(i);
+  const tryOpen=n=>{ if(markers[i]) markers[i].openPopup();
+                     else if(n<40) setTimeout(()=>tryOpen(n+1),120) };
+  setTimeout(()=>tryOpen(0),1250);
+}
+function updateTourUI(){
+  const btn=document.getElementById('btnTour');
+  btn.innerHTML = tour.playing ? '⏸&nbsp;Pause Tour' : '▶&nbsp;Start Tour';
+  btn.classList.toggle('playing', tour.playing);
+  const info=document.getElementById('tourInfo');
+  const n=currentStops.length;
+  document.querySelector('#tprog i').style.width = (n>1?(tour.idx/(n-1))*100:0)+'%';
+  if(currentStops[tour.idx]){
+    const s=currentStops[tour.idx], p=P[s.p];
+    const cumTxt = tour.idx>0 ? ` · ${cumulative(tour.idx)} km so far` : '';
+    info.innerHTML = `<b>${tour.idx+1} / ${n}</b> · ${s.label||p.name}${cumTxt}`;
+  }else info.textContent = 'Tap a gold stop, or press Play';
+}
+function pauseTour(){
+  tour.playing=false; clearTimeout(tour.timer); updateTourUI();
+}
+function next(){
+  if(!tour.playing) return;
+  tour.idx=(tour.idx+1)%currentStops.length;
+  goToStop(tour.idx);
+  tour.timer=setTimeout(next,5200);
+}
+function playTour(){
+  if(tour.playing) return pauseTour();
+  tour.playing=true; goToStop(tour.idx);
+  tour.timer=setTimeout(next,5200); updateTourUI();
+}
+
+function setHash(stop){
+  try{
+    const h=new URLSearchParams();
+    h.set('route',current);
+    if(stop!=null) h.set('stop',stop+1);
+    history.replaceState(null,'','#'+h.toString());
+  }catch(e){}
+}
+
+/* ————— build a route ————— */
+function setRoute(key){
+  pauseTour();
+  current=key;
+  const R=ROUTES[key]; currentStops=R.stops; currentPath=R.path;
+  tour.idx=0;
+
+  document.getElementById('routeTitle').textContent=R.title;
+  ['two','three','five','seven','custom'].forEach(k=>{
+    const b=document.getElementById('btn'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(b) b.classList.toggle('on', key===k);
+  });
+
+  markerTimers.forEach(clearTimeout); markerTimers=[]; markers=[];
+  if(cleanupVehicle){cleanupVehicle(); cleanupVehicle=null}
+  routeLayer.clearLayers();
+
+  const dayTot={}, dayHrs={};
+  R.stops.forEach(s=>{
+    dayTot[s.day]=(dayTot[s.day]||0)+(s.km||0);
+    dayHrs[s.day]=(dayHrs[s.day]||0)+(s.h||0);
+  });
+  let html='', curDay=null;
+  R.stops.forEach((s,i)=>{
+    if(s.day!==curDay){
+      curDay=s.day;
+      html+=`<li class="day-sep"><span>${s.day}</span><span>${Math.round(dayTot[s.day])} km · ~${Math.round(dayHrs[s.day])} h</span></li>`;
+    }
+    const p=P[s.p];
+    const leg = i===0 ? 'Starting point' : `← ${s.kmTxt} · ${s.t}`;
+    html+=`<li data-key="${i}">
+      <span class="badge">${i+1}</span>
+      <div class="stop-txt">
+        <b>${s.label||p.name}</b>
+        <span class="d">${s.day}</span>
+        <span class="n">${s.note}</span>
+        <span class="leg">${leg}</span>
+      </div>
+    </li>`;
+  });
+  document.getElementById('stops').innerHTML=html;
+
+  const legKm = R.stops.reduce((a,s)=>a+(s.km||0),0);
+  const hours = R.stops.reduce((a,s)=>a+(s.h||0),0);
+  const low   = (key==='custom') ? Math.round(legKm) : Math.round(legKm/10)*10;
+  document.getElementById('statKm').textContent  = low.toLocaleString()+' km';
+  document.getElementById('statH').textContent   = '~'+Math.round(hours)+' h';
+  document.getElementById('statLkr').textContent = (low*100).toLocaleString();
+  document.getElementById('statUsd').textContent = usd(low*100);
+
+  R.stops.forEach((s,i)=>{
+    const p=P[s.p];
+    markerTimers.push(setTimeout(()=>{
+      const m=L.marker([p.lat,p.lng],{icon:stopIcon(i,false)})
+        .addTo(routeLayer)
+        .bindPopup(popupHTML(s,i),{maxWidth:250});
+      m._name=s.label||p.name;
+      m.on('click',()=>{ pauseTour(); tour.idx=i; setActiveMarker(i); highlightList(i); updateTourUI(); });
+      markers[i]=m;
+      refreshLabels();
+    }, 220+i*150));
+  });
+
+  drawRoute(R.path, ()=>{ cleanupVehicle=makeVehicle(R.path) });
+  map.fitBounds(L.latLngBounds(R.path).pad(.08));
+  updateTourUI();
+  setHash(null);
+}
+
+/* ═══════════════ CUSTOM TOUR + LIVE ROUTING + FEASIBILITY ═══════════════ */
+
+let livePlan=null, planSig=null, planToken=0, debounceT=null;
+
+function planSignature(){ return [...sel].sort().join(',')+'|'+bDays }
+
+/* order places nearest-first (sequencing only; distances come live) */
+function orderPlaces(){
+  const remaining=[...sel], order=[]; let cur=BASE;
+  while(remaining.length){
+    let bi=0,bd=Infinity;
+    remaining.forEach((id,i)=>{
+      const d=hav(cur,[P[id].lat,P[id].lng]);
+      if(d<bd){bd=d;bi=i}
+    });
+    const id=remaining.splice(bi,1)[0];
+    order.push(id); cur=[P[id].lat,P[id].lng];
+  }
+  return order;
+}
+
+/* compute the plan: real road km/h for every leg + real road path */
+async function computePlan(){
+  const order=orderPlaces();
+  const seq=['airport',...order,'airport'];
+  const legs=[];
+  for(let i=0;i<seq.length-1;i++) legs.push(fetchLeg(seq[i],seq[i+1]));
+  const res=await Promise.all(legs);
+  /* build the drawn path from real road geometry where available */
+  const path=[BASE];
+  res.forEach((L,i)=>{
+    if(L.geom&&L.geom.length){ L.geom.forEach(pt=>path.push(pt)); }
+    else path.push([P[seq[i+1]].lat,P[seq[i+1]].lng]);
+  });
+  const totalKmRaw=res.reduce((a,L)=>a+L.km,0);
+  return {order, legs:res, seq, totalKmRaw,
+          mode:res.every(L=>L.live)?'live':'offline', path};
+}
+
+async function ensurePlan(){
+  if(!livePlan || planSig!==planSignature()){
+    livePlan=await computePlan();
+    planSig=planSignature();
+  }
+  return livePlan;
+}
+
+function schedulePlan(){
+  clearTimeout(debounceT);
+  debounceT=setTimeout(async ()=>{
+    const tok=++planToken;
+    const plan=await computePlan();
+    if(tok!==planToken) return;          /* superseded by newer taps */
+    livePlan=plan; planSig=planSignature();
+    renderBuilder();
+  }, 300);
+}
+
+/* day split — uses REAL buffered km & hours */
+function splitDays(plan){
+  const items=[]; let day=1, act=0, dayKm=0;
+  plan.legs.slice(0,-1).forEach((L,i)=>{
+    const id=plan.order[i];
+    const legKm=L.km*KM_BUFFER, legH=L.h, v=placeInfo(id).v||1;
+    if(act>0.5 && (act+legH+v>DAY_ACTIVITY || dayKm+legKm>DAY_KM_MAX) && day<bDays){
+      day++; act=0; dayKm=0;
+    }
+    act+=legH+v; dayKm+=legKm;
+    items.push({id, day, drive:legH, visit:v, legKm});
+  });
+  const ret=plan.legs[plan.legs.length-1];
+  const retKm=ret.km*KM_BUFFER, retH=ret.h;
+  const perKm={}, perDrive={};
+  items.forEach(it=>{
+    perKm[it.day]=(perKm[it.day]||0)+it.legKm;
+    perDrive[it.day]=(perDrive[it.day]||0)+it.drive;
+  });
+  perKm[bDays]=(perKm[bDays]||0)+retKm;
+  perDrive[bDays]=(perDrive[bDays]||0)+retH;
+  return {items, retKm, retH,
+          maxKm:Math.max(...Object.values(perKm)),
+          maxDrive:Math.max(...Object.values(perDrive))};
+}
+
+/* feasibility — now on real road numbers */
+function checkFeasibility(plan){
+  plan=plan||livePlan;
+  if(!plan) return {verdict:'none'};
+  const driveH=plan.legs.reduce((a,L)=>a+L.h,0);
+  const visitH=[...sel].reduce((a,id)=>a+(placeInfo(id).v||1),0);
+  const totalH=driveH+visitH;
+  const avail=bDays*DAY_ACTIVITY;
+  const totalKm=plan.totalKmRaw*KM_BUFFER;
+  const kmCap=bDays*DAY_KM_MAX;
+
+  let maxLegKm=0, maxLegLabel='';
+  plan.legs.forEach((L,i)=>{
+    const k=L.km*KM_BUFFER;
+    if(k>maxLegKm){
+      maxLegKm=k;
+      maxLegLabel=(plan.seq[i+1]==='airport')?'the return to Colombo':P[plan.seq[i+1]].name;
+    }
+  });
+  const legBlocked=maxLegKm>DAY_KM_MAX+0.01;
+
+  const dispKm=plan.legs.reduce((a,L)=>a+Math.round(L.km*KM_BUFFER),0);
+
+  const blockers=[...sel]
+    .filter(id=>(placeInfo(id).md||1)>bDays)
+    .map(id=>({id, md:placeInfo(id).md}));
+
+  const sp=splitDays(plan);
+
+  let needDays=Math.max(
+    Math.ceil(totalH/DAY_ACTIVITY),
+    Math.ceil(totalKm/DAY_KM_MAX),
+    ...blockers.map(b=>b.md)
+  );
+
+  const base={driveH,visitH,totalH,avail,needDays,legBlocked,
+              maxDayKm:sp.maxKm, maxDayDrive:sp.maxDrive,
+              totalKm,kmCap,dispKm,maxLeg:{km:maxLegKm,label:maxLegLabel},
+              blockers:[],removeSugg:[],noReasons:[]};
+
+  const reasons=[];
+  blockers.forEach(b=>reasons.push(`<b>${P[b.id].name}</b> needs at least ${b.md} day${b.md>1?'s':''} from Colombo`));
+  if(totalH>avail+0.01) reasons.push(`the plan needs ${fmtH(totalH)} of driving + visits vs only ${avail} h available`);
+  if(totalKm>kmCap+0.01) reasons.push(`≈ ${Math.round(totalKm)} km total is beyond the ~${DAY_KM_MAX} km/day our drivers comfortably cover (≈ ${kmCap} km in ${bDays} day${bDays>1?'s':''})`);
+  if(sp.maxKm>DAY_KM_MAX+0.01) reasons.push(`one day would need ~${Math.round(sp.maxKm)} km of driving — beyond ~${DAY_KM_MAX} km/day`);
+  if(legBlocked) reasons.push(`the drive to <b>${maxLegLabel}</b> alone is ~${Math.round(maxLegKm)} km — it needs an overnight stop en route and a longer tour`);
+
+  if(reasons.length){
+    const removeSugg=[...sel].sort((a,b)=>
+      hav(BASE,[P[b].lat,P[b].lng])-hav(BASE,[P[a].lat,P[a].lng])).slice(0,2);
+    return {...base, verdict:'no', blockers, removeSugg, noReasons:reasons};
+  }
+  if(totalH>avail*0.85 || sp.maxDrive>6 || sp.maxKm>DAY_KM_MAX*0.85){
+    return {...base, verdict:'tight'};
+  }
+  return {...base, verdict:'ok'};
+}
+
+/* build ROUTES.custom from the live plan (real km & real road path) */
+function buildCustomRoute(){
+  const plan=livePlan; if(!plan) return false;
+  const sp=splitDays(plan);
+  const stops=[{p:'airport',day:'Day 1',label:'Colombo · Airport · Start',
+    note:'Your custom tour begins',km:0}];
+  plan.legs.slice(0,-1).forEach((L,i)=>{
+    const id=plan.order[i], info=placeInfo(id);
+    stops.push({p:id, day:'Day '+sp.items[i].day,
+      note:`your pick · plan ~${fmtV(info.v)} here`,
+      km:Math.round(L.km*KM_BUFFER), kmTxt:'≈'+Math.round(L.km*KM_BUFFER)+' km',
+      t:fmtH(L.h), h:L.h});
+  });
+  const ret=plan.legs[plan.legs.length-1];
+  stops.push({p:'airport',day:'Day '+bDays,label:'Colombo · Airport · End',
+    note:'Return & farewell',
+    km:Math.round(ret.km*KM_BUFFER), kmTxt:'≈'+Math.round(ret.km*KM_BUFFER)+' km',
+    t:fmtH(ret.h), h:ret.h});
+  ROUTES.custom={title:`Custom ${bDays}-Day Tour`, days:bDays, stops, path:plan.path};
+  return true;
+}
+
+/* ————— builder UI ————— */
+function renderChips(bad){
+  bad=bad||new Set();
+  document.getElementById('chips').innerHTML=CUSTOM_PLACES.map(c=>{
+    const inf=placeInfo(c.id);
+    const extra=inf.md>1?` · needs ${inf.md}d`:'';
+    return `<button class="chip${sel.has(c.id)?' on':''}${bad.has(c.id)?' bad':''}"
+      data-id="${c.id}">${P[c.id].name}<small>${c.tag} · ~${fmtV(inf.v)}${extra}</small></button>`;
+  }).join('');
+}
+
+function renderBuilder(){
+  document.querySelectorAll('.daypick button').forEach(b=>
+    b.classList.toggle('on', +b.dataset.days===bDays));
+
+  const est=document.getElementById('bEst');
+  const vm=document.getElementById('bView'), wm=document.getElementById('bWa');
+
+  if(!sel.size){
+    planSig=null; livePlan=null;
+    renderChips();
+    est.className='b-est';
+    est.innerHTML='Select destinations — distances will be measured live on the real road network.';
+    vm.disabled=true; wm.disabled=true;
+    return;
+  }
+
+  const planReady = livePlan && planSig===planSignature();
+
+  if(!planReady){
+    renderChips();
+    est.className='b-est';
+    est.innerHTML='🛣 Measuring real road distances…';
+    vm.disabled=true; wm.disabled=true;
+    schedulePlan();
+    return;
+  }
+
+  const f=checkFeasibility(livePlan);
+
+  /* red-mark problem chips */
+  const bad=new Set();
+  if(f.verdict==='no'){
+    f.blockers.forEach(b=>bad.add(b.id));
+    f.removeSugg.forEach(id=>bad.add(id));
+  }
+  renderChips(bad);
+
+  const km=f.dispKm, lkr=km*100, us=Math.round(lkr/CONFIG.usdRate);
+  est.className='b-est '+f.verdict;
+
+  let head, body, fix='';
+
+  if(f.verdict==='ok'){
+    head=`<span class="st-ok">✓ Feasible</span> — fits comfortably into ${bDays} day${bDays>1?'s':''} (≤ ~${DAY_KM_MAX} km/day driving).`;
+  }else if(f.verdict==='tight'){
+    head=`<span class="st-tight">⚠ Possible — but tight</span>`;
+  }else{
+    head=`<span class="st-no">✕ Not possible in ${bDays} day${bDays>1?'s':''}</span>`;
+  }
+
+  body=`≈ <b>${km.toLocaleString()} km</b> · ${fmtH(f.driveH)} driving + ${fmtH(f.visitH)} visiting = <b>${fmtH(f.totalH)}</b> vs ${f.avail} h available<br>`+
+       `LKR <b>${lkr.toLocaleString()}</b> · <b>≈ $${us.toLocaleString()}</b> <span style="color:#8a928c;font-size:9px">(approx — final on actual km)</span>`;
+
+  if(f.verdict==='tight'){
+    body+=`<br>Longest day: ~${Math.round(f.maxDayKm)} km · ${fmtH(f.maxDayDrive)} driving — early starts recommended.`;
+  }
+  if(f.verdict==='no'){
+    body+=`<br>Why: ${f.noReasons.join(' — and ')}.`;
+    if(f.needDays>bDays && f.needDays<=4 && !f.legBlocked){
+      fix+=`<button class="fixbtn" data-fix="days" data-days="${f.needDays}">→ Switch to ${f.needDays} Day${f.needDays>1?'s':''}</button>`;
+    }else{
+      fix+=`<button class="fixbtn" data-fix="route" data-route="five">→ See 5-Day Tour</button>`;
+      fix+=`<button class="fixbtn" data-fix="route" data-route="seven">→ See 7-Day Tour</button>`;
+    }
+    f.removeSugg.filter(id=>sel.has(id)).slice(0,2).forEach(id=>{
+      fix+=`<button class="fixbtn red" data-fix="remove" data-id="${id}">✕ Remove ${P[id].name}</button>`;
+    });
+  }
+
+  const modeLine = livePlan.mode==='live'
+    ? '<span class="rt rt-live">🛣 measured on the real road network — live routing</span>'
+    : '<span class="rt rt-off">⚠ live routing unavailable — approximate offline estimates</span>';
+
+  if(fix) fix=`<div style="margin-top:9px;display:flex;gap:6px;flex-wrap:wrap">${fix}</div>`;
+  est.innerHTML=`${head}<br>${body}${fix}${modeLine}`;
+
+  vm.disabled=false;
+  wm.disabled=(f.verdict==='no');
+}
+
+function openBuilder(){ document.getElementById('bveil').classList.add('open'); renderBuilder() }
+function closeBuilder(){ document.getElementById('bveil').classList.remove('open') }
+
+document.getElementById('btnCustom').onclick = openBuilder;
+document.getElementById('bClose').onclick    = closeBuilder;
+document.getElementById('bveil').addEventListener('click', e=>{
+  if(e.target.id==='bveil') closeBuilder();
+});
+document.querySelectorAll('.daypick button').forEach(b=>{
+  b.onclick=()=>{ bDays=+b.dataset.days; renderBuilder() };
+});
+document.getElementById('chips').addEventListener('click', e=>{
+  const c=e.target.closest('.chip'); if(!c) return;
+  sel.has(c.dataset.id) ? sel.delete(c.dataset.id) : sel.add(c.dataset.id);
+  renderBuilder();
+});
+document.getElementById('bClear').onclick = ()=>{ sel.clear(); renderBuilder() };
+document.getElementById('bEst').addEventListener('click', e=>{
+  const fx=e.target.closest('[data-fix]'); if(!fx) return;
+  if(fx.dataset.fix==='days'){ bDays=+fx.dataset.days; renderBuilder() }
+  else if(fx.dataset.fix==='route'){ closeBuilder(); setRoute(fx.dataset.route) }
+  else if(fx.dataset.fix==='remove'){ sel.delete(fx.dataset.id); renderBuilder() }
+});
+document.getElementById('bView').onclick = async ()=>{
+  if(!sel.size) return;
+  await ensurePlan();
+  const f=checkFeasibility(livePlan);
+  buildCustomRoute(); setRoute('custom'); closeBuilder();
+  toast(f.verdict==='no'
+    ? `Reference only — this plan does NOT fit ${bDays} day${bDays>1?'s':''}`
+    : 'Your custom tour is on the map — press ▶ Start Tour');
+};
+document.getElementById('bWa').onclick = async ()=>{
+  if(!sel.size) return;
+  await ensurePlan();
+  if(checkFeasibility(livePlan).verdict==='no') return;
+  buildCustomRoute(); waOpen(customMsg());
+};
+
+/* ————— wishlist ————— */
+function renderWish(){
+  const badge=document.getElementById('wishBadge');
+  badge.textContent=wish.length;
+  badge.classList.toggle('show',wish.length>0);
+  document.getElementById('wishCount').textContent =
+    wish.length+(wish.length===1?' place':' places');
+  const list=document.getElementById('wishList');
+  list.innerHTML = wish.length
+    ? wish.map((id,i)=>`<li><b>${i+1}. ${ALL[id]}</b><button data-rem="${id}" title="Remove">✕</button></li>`).join('')
+    : '<li class="empty">No places yet — tap “♥ Add to my trip” on any stop or place of interest.</li>';
+}
+function toggleWish(id, btn){
+  const i=wish.indexOf(id);
+  if(i>=0){ wish.splice(i,1); toast(`${ALL[id]} removed from your trip`); }
+  else    { wish.push(id);    toast(`${ALL[id]} added to your trip`); }
+  if(btn){
+    const on=wish.includes(id);
+    btn.classList.toggle('on',on);
+    btn.textContent = on ? '✓ In my trip' : '♥ Add to my trip';
+  }
+  renderWish();
+}
+
+/* ————— places of interest layer ————— */
+function buildPOIs(){
+  poisBuilt=true;
+  POIS.forEach(p=>{
+    const m=L.marker([p.lat,p.lng],{icon:poiIcon})
+      .addTo(poiLayer).bindPopup(poiPopup(p),{maxWidth:250});
+    m._name=p.name;
+    poiMarkers.push(m);
+  });
+}
+function togglePOIs(){
+  poisOn=!poisOn;
+  document.getElementById('toolPOI').classList.toggle('on',poisOn);
+  if(poisOn){
+    if(!poisBuilt) buildPOIs();
+    poiLayer.addTo(map);
+    toast(`${POIS.length} places of interest — tap the gold diamonds`);
+  }else map.removeLayer(poiLayer);
+  refreshLabels();
+}
+
+/* ————— where am I ————— */
+function locate(){
+  if(!navigator.geolocation){ toast('Location is not supported on this device'); return }
+  toast('Finding you…');
+  navigator.geolocation.getCurrentPosition(pos=>{
+    const ll=[pos.coords.latitude,pos.coords.longitude];
+    if(!meMarker) meMarker=L.marker(ll,{icon:meIcon,zIndexOffset:700}).addTo(map);
+    else meMarker.setLatLng(ll);
+    map.flyTo(ll,Math.max(map.getZoom(),9),{duration:1});
+    toast('This is where you are right now');
+  },()=>toast('Could not get your location — check permissions'),
+  {timeout:8000});
+}
+
+/* ————— fullscreen ————— */
+function toggleFS(){
+  const d=document, el=d.documentElement;
+  if(!d.fullscreenElement && !d.webkitFullscreenElement){
+    (el.requestFullscreen||el.webkitRequestFullscreen||function(){}).call(el);
+  }else{
+    (d.exitFullscreen||d.webkitExitFullscreen||function(){}).call(d);
+  }
+}
+['fullscreenchange','webkitfullscreenchange'].forEach(ev=>
+  document.addEventListener(ev,()=>{
+    document.getElementById('toolFS').classList.toggle('on',
+      !!(document.fullscreenElement||document.webkitFullscreenElement));
+    setTimeout(()=>map.invalidateSize(),350);
+  }));
+
+/* ————— copy share link ————— */
+async function copyLink(){
+  const url=location.href;
+  try{ await navigator.clipboard.writeText(url); toast('Link copied — share it anywhere') }
+  catch(err){
+    const ta=document.createElement('textarea');
+    ta.value=url; ta.style.position='fixed'; ta.style.opacity='0';
+    document.body.appendChild(ta); ta.select();
+    try{ document.execCommand('copy'); toast('Link copied — share it anywhere') }
+    catch(e){ toast('Copy failed — copy the address bar URL') }
+    document.body.removeChild(ta);
+  }
+}
+
+/* ————— wire everything up ————— */
+document.getElementById('btnTwo').onclick   = ()=>setRoute('two');
+document.getElementById('btnThree').onclick = ()=>setRoute('three');
+document.getElementById('btnFive').onclick  = ()=>setRoute('five');
+document.getElementById('btnSeven').onclick = ()=>setRoute('seven');
+document.getElementById('btnFit').onclick   = ()=>map.fitBounds(L.latLngBounds(currentPath).pad(.08));
+document.getElementById('btnTour').onclick  = playTour;
+document.getElementById('btnPrev').onclick  = ()=>{ pauseTour(); goToStop((tour.idx-1+currentStops.length)%currentStops.length) };
+document.getElementById('btnNext').onclick  = ()=>{ pauseTour(); goToStop((tour.idx+1)%currentStops.length) };
+
+document.getElementById('stops').addEventListener('click', e=>{
+  const li=e.target.closest('li[data-key]'); if(!li) return;
+  pauseTour(); goToStop(+li.dataset.key);
+});
+document.getElementById('panelToggle').onclick = ()=>
+  document.getElementById('panel').classList.toggle('collapsed');
+
+document.getElementById('toolPOI').onclick    = togglePOIs;
+document.getElementById('toolLocate').onclick = locate;
+document.getElementById('toolFS').onclick     = toggleFS;
+document.getElementById('toolShare').onclick  = copyLink;
+
+document.getElementById('waRoute').onclick = ()=>waOpen(routeMsg());
+document.getElementById('waWish').onclick  = ()=>{
+  if(!wish.length){ toast('Add a few places to your trip first'); return }
+  waOpen(wishMsg());
+};
+
+document.getElementById('wishFab').onclick   = ()=>document.getElementById('wish').classList.toggle('open');
+document.getElementById('wishClose').onclick = ()=>document.getElementById('wish').classList.remove('open');
+document.getElementById('wishClear').onclick = ()=>{ wish.length=0; renderWish(); toast('Trip list cleared') };
+document.getElementById('wishBuild').onclick = ()=>{
+  const valid=wish.filter(id=>CUSTOM_PLACES.some(c=>c.id===id));
+  if(!valid.length){ toast('Add places to your trip list first'); return }
+  sel.clear(); valid.forEach(id=>sel.add(id));
+  bDays=Math.max(1,Math.min(4,Math.ceil(valid.length/3)));
+  document.getElementById('wish').classList.remove('open');
+  openBuilder();
+  toast('Your wishlist loaded — measuring real road distances…');
+};
+document.getElementById('wishList').addEventListener('click', e=>{
+  const b=e.target.closest('[data-rem]'); if(!b) return;
+  toggleWish(b.dataset.rem);
+});
+
+map.on('popupopen', e=>{
+  const root=e.popup.getElement(); if(!root) return;
+  root.querySelectorAll('[data-add]').forEach(btn=>{
+    const id=btn.dataset.add, on=wish.includes(id);
+    btn.classList.toggle('on',on);
+    btn.textContent = on ? '✓ In my trip' : '♥ Add to my trip';
+    btn.onclick=()=>toggleWish(id,btn);
+  });
+});
+
+const veil=document.getElementById('veil');
+function hideVeil(){ veil.classList.add('gone') }
+veil.addEventListener('click', e=>{ if(e.target===veil) hideVeil() });
+document.getElementById('skipIntro').onclick = hideVeil;
+document.querySelectorAll('.intro .btns button').forEach(b=>{
+  b.onclick=()=>{
+    hideVeil();
+    if(b.dataset.route==='custom'){ openBuilder(); return }
+    setRoute(b.dataset.route);
+  };
+});
+
+document.addEventListener('keydown', e=>{
+  if(/^(BUTTON|A|INPUT|TEXTAREA|SELECT)$/.test(e.target.tagName)) return;
+  if(e.key==='Escape'){
+    hideVeil(); closeBuilder();
+    document.getElementById('wish').classList.remove('open');
+    return;
+  }
+  if(!veil.classList.contains('gone')) return;
+  if(e.key==='ArrowRight'){ pauseTour(); goToStop((tour.idx+1)%currentStops.length) }
+  else if(e.key==='ArrowLeft'){ pauseTour(); goToStop((tour.idx-1+currentStops.length)%currentStops.length) }
+  else if(e.key===' '){ e.preventDefault(); playTour() }
+  else if(e.key==='f'||e.key==='F'){ map.fitBounds(L.latLngBounds(currentPath).pad(.08)) }
+});
+
+if(new URLSearchParams(location.search).has('embed')) document.body.classList.add('embed');
+
+if(matchMedia('(max-width:840px)').matches)
+  document.getElementById('panel').classList.add('collapsed');
+
+/* ————— go ————— */
+renderWish();
+const hp=new URLSearchParams(location.hash.slice(1));
+const initRoute = ROUTES[hp.get('route')] ? hp.get('route') : 'five';
+const initStop  = parseInt(hp.get('stop'),10);
+if(hp.get('route')||hp.get('stop')) hideVeil();
+setRoute(initRoute);
+if(!isNaN(initStop) && initStop>=1 && initStop<=currentStops.length){
+  setTimeout(()=>goToStop(initStop-1), 800);
+}
+</script>
+</body>
+</html>
